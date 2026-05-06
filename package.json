@@ -1,0 +1,26 @@
+{
+  "name": "the-time-factory",
+  "version": "0.2.1",
+  "description": "An ADHD-friendly visual calendar tool",
+  "main": "server.js",
+  "scripts": {
+    "setup": "node setup.js",
+    "start": "node server.js",
+    "seed:adl": "node scripts/seed-adl.js",
+    "seed:test": "node scripts/seed-test.js",
+    "seed:test:reset": "node scripts/seed-test.js --reset",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "express": "^5.2.1",
+    "tsdav": "^2.1.8"
+  },
+  "devDependencies": {
+    "rrule": "^2.8.1",
+    "supertest": "^7.2.2",
+    "vitest": "^3.0.0"
+  }
+}

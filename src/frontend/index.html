@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Time Factory</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="play-area"></canvas>
+
+    <!-- Last synced label -->
+    <div id="sync-label"></div>
+
+    <!-- Sync button -->
+    <button id="sync-btn" title="Sync Calendars">↻</button>
+
+    <!-- Help / Info button -->
+    <button id="help-btn" title="How it works">?</button>
+
+    <!-- Warp to Date button -->
+    <button id="warp-btn" title="Warp to Date">⊙</button>
+
+    <!-- Create Balloon button -->
+    <button id="create-btn" title="New Event">＋</button>
+
+    <!-- Help overlay -->
+    <div id="help-panel" class="hidden">
+      <div id="help-panel-inner">
+        <div id="help-panel-header">
+          <span>HOW IT WORKS</span>
+          <button id="help-close">✕</button>
+        </div>
+        <div id="help-body">
+          <table id="help-table">
+            <tbody>
+              <tr><td class="help-icon">🎈</td><td><strong>Balloon</strong></td><td>One event or task</td></tr>
+              <tr><td class="help-icon">➖</td><td><strong>Belt</strong></td><td>The timeline — drag left/right or use ← → keys to scroll</td></tr>
+              <tr><td class="help-icon">↕</td><td><strong>String length</strong></td><td>Time of day — short string = early, long = late, resting on belt = all-day</td></tr>
+              <tr><td class="help-icon">🎨</td><td><strong>Color</strong></td><td>Category (configured in config.json)</td></tr>
+              <tr><td class="help-icon">💓</td><td><strong>Pulse speed</strong></td><td>Urgency — still = Low, slow = Normal, fast = High, rapid = Critical</td></tr>
+              <tr><td class="help-icon">🏷</td><td><strong>Tag</strong></td><td>Click to open event details</td></tr>
+              <tr><td class="help-icon">◀ ▶</td><td><strong>Preview zones</strong></td><td>Dimmed, smaller balloons on either side = adjacent days</td></tr>
+              <tr><td class="help-icon">✔</td><td><strong>Pop It</strong></td><td>Marks an event complete — balloon becomes a popped remnant</td></tr>
+            </tbody>
+          </table>
+          <p id="help-nav">Navigate with <kbd>←</kbd> <kbd>→</kbd> arrow keys, click-drag the belt, or use the ⊙ Warp button to jump to any date.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Warp to Date panel -->
+    <div id="warp-panel" class="hidden">
+      <div id="warp-panel-inner">
+        <div id="warp-panel-header">
+          <span>WARP TO DATE</span>
+          <button id="warp-close">✕</button>
+        </div>
+        <form id="warp-form">
+          <label>Date
+            <input type="date" id="warp-date" required>
+          </label>
+          <button type="submit" id="warp-submit">WARP</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Sync panel -->
+    <div id="sync-panel" class="hidden">
+      <div id="sync-panel-inner">
+        <div id="sync-panel-header">
+          <span>CALENDAR SYNC</span>
+          <button id="sync-close">✕</button>
+        </div>
+        <div id="sync-body">
+          <div id="sync-sources">
+            <div class="sync-source" id="sync-google-row">
+              <span class="sync-source-icon">📅</span>
+              <div class="sync-source-info">
+                <span class="sync-source-name">Google Calendar</span>
+                <span class="sync-source-mode">Read-only · iCal URL</span>
+              </div>
+              <span class="sync-source-status" id="sync-google-status">—</span>
+              <button class="sync-configure-btn" data-service="google" title="Configure">⚙</button>
+            </div>
+            <div class="sync-source" id="sync-nextcloud-row">
+              <span class="sync-source-icon">☁</span>
+              <div class="sync-source-info">
+                <span class="sync-source-name">NextCloud</span>
+                <span class="sync-source-mode">Bidirectional · CalDAV</span>
+              </div>
+              <span class="sync-source-status" id="sync-nextcloud-status">—</span>
+              <button class="sync-configure-btn" data-service="nextcloud" title="Configure">⚙</button>
+            </div>
+          </div>
+
+          <!-- Google config sub-panel -->
+          <div id="sync-config-google" class="sync-config-panel hidden">
+            <div class="sync-config-header">
+              <span>GOOGLE CALENDAR</span>
+              <button class="sync-config-close" data-service="google">✕</button>
+            </div>
+            <form class="sync-config-form" data-service="google">
+              <label>Secret iCal URL
+                <input type="url" name="icalUrl" placeholder="https://calendar.google.com/calendar/ical/…" autocomplete="off">
+              </label>
+              <p class="sync-config-hint">Find this in Google Calendar → ⋮ Settings → Integrate calendar → <em>Secret address in iCal format</em></p>
+              <button type="submit">SAVE</button>
+            </form>
+          </div>
+
+          <!-- NextCloud config sub-panel -->
+          <div id="sync-config-nextcloud" class="sync-config-panel hidden">
+            <div class="sync-config-header">
+              <span>NEXTCLOUD CALENDAR</span>
+              <button class="sync-config-close" data-service="nextcloud">✕</button>
+            </div>
+            <form class="sync-config-form" data-service="nextcloud">
+              <label>Server URL
+                <input type="url" name="url" placeholder="https://your-nextcloud.example.com" autocomplete="off">
+              </label>
+              <label>Username
+                <input type="text" name="username" autocomplete="off">
+              </label>
+              <label>App Password
+                <input type="password" name="appPassword" placeholder="Leave blank to keep existing" autocomplete="new-password">
+              </label>
+              <label>Calendar Path <span class="optional">(leave blank to auto-detect)</span>
+                <input type="text" name="calendarPath" placeholder="/remote.php/dav/calendars/user/personal/" autocomplete="off">
+              </label>
+              <p class="sync-config-hint">Create an App Password in NextCloud → Settings → Security → App passwords</p>
+              <button type="submit">SAVE</button>
+            </form>
+          </div>
+
+          <div id="sync-under-construction">
+            <div id="sync-uc-banner">🚧 UNDER CONSTRUCTION 🚧</div>
+            <div id="sync-uc-label">Bi-Directional Google Sync</div>
+            <div id="sync-uc-desc">Full read/write sync via Google Calendar API. Requires a Google Cloud project. Coming soon.</div>
+          </div>
+
+          <div id="sync-last-synced"></div>
+          <div id="sync-error"></div>
+          <button id="sync-run">SYNC NOW</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Balloon panel -->
+    <div id="create-panel" class="hidden">
+      <div id="create-panel-inner">
+        <div id="create-panel-header">
+          <span>NEW EVENT</span>
+          <button id="create-close">✕</button>
+        </div>
+
+        <form id="create-form">
+          <input type="hidden" name="event_id">
+          <label>Title *
+            <input type="text" name="title" required autocomplete="off">
+          </label>
+
+          <div class="date-row">
+            <label>Date *
+              <input type="date" name="date" required>
+            </label>
+            <label>Start Time
+              <input type="time" name="start_time" placeholder="blank = all-day">
+            </label>
+          </div>
+
+          <div class="date-row">
+            <label>End Date
+              <input type="date" name="end_date" placeholder="multi-day">
+            </label>
+            <label>End Time
+              <input type="time" name="end_time">
+            </label>
+          </div>
+
+          <label>Repeats
+            <select name="recurrence_freq" id="recurrence-freq">
+              <option value="">Does not repeat</option>
+              <option value="DAILY">Daily</option>
+              <option value="WEEKLY">Weekly</option>
+              <option value="MONTHLY">Monthly</option>
+            </select>
+          </label>
+
+          <div id="recurrence-days" class="hidden">
+            <span class="field-label">On days</span>
+            <div class="checkbox-row">
+              <label><input type="checkbox" name="recurrence_byday" value="MO"> Mon</label>
+              <label><input type="checkbox" name="recurrence_byday" value="TU"> Tue</label>
+              <label><input type="checkbox" name="recurrence_byday" value="WE"> Wed</label>
+              <label><input type="checkbox" name="recurrence_byday" value="TH"> Thu</label>
+              <label><input type="checkbox" name="recurrence_byday" value="FR"> Fri</label>
+              <label><input type="checkbox" name="recurrence_byday" value="SA"> Sat</label>
+              <label><input type="checkbox" name="recurrence_byday" value="SU"> Sun</label>
+            </div>
+          </div>
+
+          <div id="recurrence-end" class="hidden">
+            <label>Ends
+              <select name="recurrence_end_type" id="recurrence-end-type">
+                <option value="never">Never</option>
+                <option value="until">On date</option>
+                <option value="count">After N times</option>
+              </select>
+            </label>
+            <input type="date" name="recurrence_until" id="recurrence-until" class="hidden">
+            <input type="number" name="recurrence_count" id="recurrence-count" min="1" max="365" placeholder="# of times" class="hidden">
+          </div>
+
+          <label>Category
+            <select name="category"></select>
+          </label>
+
+          <label>Urgency
+            <div id="urgency-picker">
+              <button type="button" class="urgency-btn" data-urgency="0" style="background:#4a90d9">Low</button>
+              <button type="button" class="urgency-btn" data-urgency="1" style="background:#e8a843">Normal</button>
+              <button type="button" class="urgency-btn" data-urgency="2" style="background:#e84393">High</button>
+              <button type="button" class="urgency-btn" data-urgency="3" style="background:#ff2222">Critical</button>
+            </div>
+            <input type="hidden" name="urgency" value="0">
+          </label>
+
+          <label>
+            <span class="label-inline">Zettelkasten Link <span class="optional">(Obsidian note)</span></span>
+            <input type="text" name="zettel_link" autocomplete="off" placeholder="Note name">
+          </label>
+
+          <label>Description
+            <textarea name="description" rows="3"></textarea>
+          </label>
+
+          <button type="submit" id="create-submit">INFLATE BALLOON</button>
+        </form>
+      </div>
+    </div>
+    <!-- Event info panel -->
+    <div id="info-panel" class="hidden">
+      <div id="info-panel-inner">
+        <div id="info-panel-header">
+          <span id="info-title"></span>
+          <button id="info-close">✕</button>
+        </div>
+        <div id="info-body">
+          <div class="info-row"><span class="info-label">Date</span><span id="info-date"></span></div>
+          <div class="info-row"><span class="info-label">Time</span><span id="info-time"></span></div>
+          <div class="info-row"><span class="info-label">Category</span><span id="info-category"></span></div>
+          <div class="info-row"><span class="info-label">Urgency</span><span id="info-urgency"></span></div>
+          <div class="info-row" id="info-desc-row"><span class="info-label">Notes</span><span id="info-description"></span></div>
+        </div>
+        <div id="info-actions">
+          <button id="info-pop">POP IT</button>
+          <button id="info-edit">EDIT</button>
+          <button id="info-delete">DELETE</button>
+        </div>
+      </div>
+    </div>
+    <!-- Series delete dialog (shown when deleting a recurring event) -->
+    <div id="series-delete-panel" class="hidden">
+      <div id="series-delete-inner">
+        <div id="series-delete-header">
+          <span>DELETE RECURRING EVENT</span>
+        </div>
+        <p id="series-delete-label"></p>
+        <div id="series-delete-actions">
+          <button id="series-delete-all">Remove all occurrences</button>
+          <button id="series-delete-previous">Remove previous occurrences</button>
+          <button id="series-delete-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/js/vendor/rrule.min.js"></script>
+  <script src="/js/utils/date-utils.js"></script>
+  <script src="/js/utils/seeded-random.js"></script>
+  <script src="/js/state.js"></script>
+  <script src="/js/canvas/context.js"></script>
+  <script src="/js/canvas/profiles.js"></script>
+  <script src="/js/canvas/layout.js"></script>
+  <script src="/js/canvas/audio.js"></script>
+  <script src="/js/canvas/renderer.js"></script>
+  <script src="/js/canvas/animation.js"></script>
+  <script src="/js/canvas/input.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

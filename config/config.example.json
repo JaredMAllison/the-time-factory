@@ -1,0 +1,24 @@
+{
+  "port": 3000,
+  "host": "0.0.0.0",
+  "displayName": "My Time Factory",
+  "soundEnabled": true,
+  "categories": [
+    { "name": "Self-Care",      "color": "#4fc3f7" },
+    { "name": "Community",      "color": "#ab47bc" },
+    { "name": "Productivity",   "color": "#ffb300" },
+    { "name": "Infrastructure", "color": "#4db6ac" },
+    { "name": "Personal",       "color": "#81c784" }
+  ],
+  "google": {
+    "_comment": "Paste your Google Calendar secret iCal URL here (Calendar settings → Integrate calendar → Secret address in iCal format)",
+    "icalUrl": ""
+  },
+  "nextcloud": {
+    "_comment": "NextCloud CalDAV sync — use an App Password (Settings → Security → App passwords)",
+    "url":          "https://your-nextcloud.example.com",
+    "username":     "",
+    "appPassword":  "",
+    "calendarPath": ""
+  }
+}
