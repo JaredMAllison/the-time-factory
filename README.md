@@ -18,7 +18,7 @@ An ADHD-friendly visual calendar tool. Events are balloons floating above a conv
 ## Setup
 
 ```bash
-git clone https://github.com/UBR-JMA/the-time-factory.git
+git clone https://github.com/JaredMAllison/the-time-factory.git
 cd the-time-factory
 npm install
 cp config/config.example.json config/config.json
