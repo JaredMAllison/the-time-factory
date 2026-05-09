@@ -1,5 +1,8 @@
 # The Time Factory
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![JavaScript](https://img.shields.io/badge/javascript-ES6+-yellow.svg)](package.json)
+
 An ADHD-friendly visual calendar tool. Events are balloons floating above a conveyor belt timeline — the further up, the later in the day. Color tells you what kind of task it is. Pulse speed tells you how urgent it is.
 
 ## Concept
