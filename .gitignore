@@ -1,3 +1,5 @@
 node_modules/
 data/
 config/config.json
+.superpowers/
+CLAUDE.md
