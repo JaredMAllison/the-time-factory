@@ -113,7 +113,10 @@ router.post('/', (req, res) => {
   const validationError = validateEvent(req.body, true);
   if (validationError) return res.status(400).json(validationError);
 
-  const { title, date, start_time, end_date, end_time, description, category, urgency, rrule, recurrence_id } = req.body;
+  const {
+    title, date, start_time, end_date, end_time, description, category, urgency, rrule, recurrence_id,
+    external_id, source, source_updated_at,
+  } = req.body;
   const now   = new Date().toISOString();
   const event = {
     id:             randomUUID(),
@@ -127,15 +130,38 @@ router.post('/', (req, res) => {
     urgency:        urgency        ?? 0,
     rrule:          rrule          || null,
     recurrence_id:  recurrence_id  || null,
+    // Sync provenance. Callers that own the record elsewhere (the Marlin vault's
+    // /ttf-push, an importer) send these so the TTF→origin back-reference exists
+    // from creation. Absent means null, which is what the Nextcloud push-out
+    // treats as "locally authored, not yet mirrored" — same as PUT leaving them
+    // untouched and the sync engines defaulting source_updated_at to null.
+    external_id:       external_id       || null,
+    source:            source            || null,
+    source_updated_at: source_updated_at || null,
     created_at:     now,
     updated_at:     now,
   };
   try {
     db.prepare(`
-      INSERT INTO events (id, title, date, start_time, end_date, end_time, description, category, urgency, rrule, recurrence_id, created_at, updated_at)
-      VALUES (@id, @title, @date, @start_time, @end_date, @end_time, @description, @category, @urgency, @rrule, @recurrence_id, @created_at, @updated_at)
+      INSERT INTO events (id, title, date, start_time, end_date, end_time, description, category, urgency, rrule, recurrence_id, external_id, source, source_updated_at, created_at, updated_at)
+      VALUES (@id, @title, @date, @start_time, @end_date, @end_time, @description, @category, @urgency, @rrule, @recurrence_id, @external_id, @source, @source_updated_at, @created_at, @updated_at)
     `).run(event);
     res.status(201).json(event);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// GET /api/events/:id — single event by id
+router.get('/:id', (req, res) => {
+  if (!UUID_RE.test(req.params.id)) {
+    return res.status(400).json({ error: 'Invalid event ID format' });
+  }
+  try {
+    const event = db.prepare('SELECT * FROM events WHERE id = ?').get(req.params.id);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    res.json(event);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });

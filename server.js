@@ -57,6 +57,13 @@ app.get('/api/config', (req, res) => {
   });
 });
 
+// Unmatched API paths must 404 as JSON. Without this the SPA catch-all below
+// returns index.html with HTTP 200 for any bad /api/* path — a false success
+// that health checks pass and callers parse as data.
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
 // All other requests serve the frontend (allows future client-side routing)
 app.get('/{*path}', (req, res) => {
   res.sendFile(path.join(__dirname, 'src', 'frontend', 'index.html'));

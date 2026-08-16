@@ -79,6 +79,73 @@ describe('POST /api/events', () => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/events — sync provenance fields
+//
+// external_id / source / source_updated_at are how an event points back at the
+// record that owns it elsewhere (for Marlin's /ttf-push, external_id is the
+// vault path). POST used to drop all three and still answer 201, so every
+// balloon created by push was write-only: the vault knew its ttf_id but TTF had
+// no back-reference, and GET /api/events?source=marlin could not see it.
+// ---------------------------------------------------------------------------
+
+describe('POST /api/events — sync provenance fields', () => {
+  it('round-trips external_id, source and source_updated_at', async () => {
+    const payload = {
+      title:             'Submit UIB Claim',
+      date:              '2026-04-19',
+      external_id:       'Tasks/submit-uib-claim.md',
+      source:            'marlin',
+      source_updated_at: '2026-04-19T12:00:00.000Z',
+    };
+    const res = await request.post('/api/events').send(payload);
+    expect(res.status).toBe(201);
+    expect(res.body.external_id).toBe(payload.external_id);
+    expect(res.body.source).toBe('marlin');
+    expect(res.body.source_updated_at).toBe(payload.source_updated_at);
+
+    // The response echo is not proof of persistence — read it back.
+    const read = await request.get(`/api/events/${res.body.id}`);
+    expect(read.status).toBe(200);
+    expect(read.body.external_id).toBe(payload.external_id);
+    expect(read.body.source).toBe('marlin');
+    expect(read.body.source_updated_at).toBe(payload.source_updated_at);
+  });
+
+  it('defaults all three to null when omitted', async () => {
+    const res = await request
+      .post('/api/events')
+      .send({ title: 'Locally authored event', date: '2026-04-20' });
+    expect(res.status).toBe(201);
+    expect(res.body.external_id).toBeNull();
+    expect(res.body.source).toBeNull();
+    expect(res.body.source_updated_at).toBeNull();
+
+    const read = await request.get(`/api/events/${res.body.id}`);
+    expect(read.status).toBe(200);
+    expect(read.body.external_id).toBeNull();
+    expect(read.body.source).toBeNull();
+    expect(read.body.source_updated_at).toBeNull();
+  });
+
+  it('makes a POST-created event visible to the source filter query', async () => {
+    const res = await request.post('/api/events').send({
+      title:       'Reconcilable push',
+      date:        '2026-04-21',
+      external_id: 'Tasks/reconcilable-push.md',
+      source:      'marlin-post-test',
+    });
+    expect(res.status).toBe(201);
+
+    const list = await request.get(
+      '/api/events?source=marlin-post-test&modified_since=1970-01-01T00:00:00.000Z'
+    );
+    expect(list.status).toBe(200);
+    expect(list.body.map(e => e.id)).toContain(res.body.id);
+    expect(list.body[0].external_id).toBe('Tasks/reconcilable-push.md');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // PUT /api/events/:id
 // ---------------------------------------------------------------------------
 
@@ -303,7 +370,9 @@ describe('GET /api/events — modified_since param validation', () => {
 });
 
 describe('GET /api/events — source filter', () => {
-  // source is a sync field — must be set via PUT after creation, not in POST.
+  // These set source via PUT after creation. POST accepts it too (see the
+  // "sync provenance fields" block above); the PUT path is kept here because it
+  // is the shape the sync engines and the /ttf-push update path both use.
   let marlinId1, marlinId2, googleId;
 
   beforeAll(async () => {
@@ -441,5 +510,47 @@ describe('GET /api/events — combined filter correctness', () => {
     const res = await request.get('/api/events?source=marlin&modified_since=2099-01-01T00:00:00.000Z');
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// API 404 guard
+// ---------------------------------------------------------------------------
+
+describe('API 404 guard', () => {
+  it('returns JSON 404 for an unmatched /api path, not the SPA', async () => {
+    const res = await request.get('/api/definitely-not-a-route');
+    expect(res.status).toBe(404);
+    expect(res.headers['content-type']).toMatch(/application\/json/);
+    expect(res.body.error).toBe('Not found');
+  });
+
+  it('does not swallow non-API paths', async () => {
+    const res = await request.get('/some/spa/route');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/html/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/events/:id
+// ---------------------------------------------------------------------------
+
+describe('GET /api/events/:id', () => {
+  it('returns the single event as JSON', async () => {
+    const created = await request.post('/api/events').send({
+      title: 'Fetch me by id', date: '2026-08-15',
+    });
+    const id = created.body.id;
+    const res = await request.get(`/api/events/${id}`);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/application\/json/);
+    expect(res.body.id).toBe(id);
+    expect(res.body.title).toBe('Fetch me by id');
+  });
+
+  it('404s for an unknown id', async () => {
+    const res = await request.get('/api/events/00000000-0000-0000-0000-000000000000');
+    expect(res.status).toBe(404);
   });
 });
