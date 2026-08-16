@@ -112,6 +112,23 @@ The `external_id` defect survived four months because its failure mode was invis
 
 A compose that has not reached the vault **renders as uncaptured** — a marked balloon, a count, some visible signal. Uncaptured is a state the operator can see, not one discovered in a later audit.
 
+#### This is the only part that does not survive a frontend rebuild
+
+Everything else in this design is backend and transfers untouched — which is why §1 put capture in `POST /api/events` rather than in a submit handler. ttf-adr-011 keeps the Express + SQLite backend and replaces only the renderer, so the Godot client posts to the same endpoint and is captured for free.
+
+Visibility is different: it is rendering, and it must be built **three times**, not once —
+
+1. the current vanilla JS canvas (`src/frontend`)
+2. the Godot 4 rebuild (ttf-adr-011)
+3. the cockpit's React belt panel (`panels/ttf.jsx` in the cockpit repo, a third renderer already in use)
+
+**So the server must make it nearly free to display.** The rendering cost is what gets a requirement dropped; the computation cost is what makes it expensive to add back.
+
+- `captured_at` is returned on **every** event in `GET /api/events` — a frontend needs one null check, no extra request, no client-side derivation.
+- The collection response carries `uncaptured_count` alongside the events, so a frontend that cannot mark individual balloons can still show a single number.
+
+A renderer that ignores both is then visibly incomplete rather than quietly wrong, and adding the signal later costs a conditional rather than a feature.
+
 ### 5. Buffer line format
 
 ```
@@ -149,6 +166,7 @@ TTF is Node + Express + `better-sqlite3` with Vitest. Tests set `process.env.DB_
 - Line format round-trips: id in the comment matches the created event's id
 - Recurring compose (`rrule` set) → captured once, at the first occurrence, not once per expansion
 - Description containing newlines → collapsed to a single-line entry, nothing dropped
+- `GET /api/events` returns `captured_at` on every event and `uncaptured_count` on the collection — the contract three separate renderers depend on
 
 ⚠️ **Never point `capture_url` at the real vault in tests.** Use a stub HTTP server on an ephemeral port. Writing into `/home/jared/Documents/Obsidian/` from a test is itself a defect.
 
